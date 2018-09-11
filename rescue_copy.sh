@@ -4,16 +4,17 @@
 # .
 # The script checks if there are any new files in a directory
 # and tries to copy them to target folder. If the copying succeeds
-# the source file is deleted. If there already is a file with matching
-# size (in the target folder) the source file is deleted.
+# the source file is deleted. The script relies on the source file
+# to be _the_ valid and correct version of the file, so it will
+# overwrite any pre-existing files with the same names.
 # .
 # The original usage is to move the files that were not successfully
 # copied to a network drive after being created by a program.
-# In this case TVHeadend has tried to copy the recording to common
+# In this case TVHeadend has tried to copy the recording to a shared
 # network folder (using another external script), but it failed.
 # So the file was copied to local rescue directory (which should
 # remain empty).
-#
+# .
 # If this script fails to copy the file there will be no mail notice,
 # since the failure had already happened earlier. Instead, it tries to
 # send an email to the desired recipient if the copying was succesful so
@@ -21,10 +22,12 @@
 # .
 # There are prerequisites. Please check that the target folder has
 # write premissions for all users. Also, please check the permissions for
-# all users in the script directory (for logging).
+# all users in the script directory (for logging). Also, the user running
+# the script should be included in sudoers, as it will try to remount
+# everything if the first try fails.
 # Also, ssmtp and mailutils need to be installed for the mail notification
 # to work, please test that emailing works beforehand. Email is only sent
-# if the copying was succesfull.
+# if the copy succeeds.
 
 # Set up the directory (without the last slash) in which the script (and the log) is (please check the permissions).
 scriptdir="/home/user/scriptfolder"
@@ -51,7 +54,7 @@ else
     exit 0
 fi
 
-# Script initiation logging, this can be commented out.
+# Script initiation logging, this can be commented out, if you don't want any logging when there are no files to be found.
 curdatetime=$(date +"%d/%m/%Y %R")
 echo "$curdatetime : Executing the (rescue) file copying script." >> "$scriptdir/log_rescue_copy.txt"
 
@@ -64,7 +67,7 @@ do
     fi
 done
 
-# This can be commented out.
+# This is commented out by default.
 # echo "Total of $filecount1 file(s) found. Exiting if zero."
 
 if [ "$filecount1" -ge 1 ]
@@ -73,6 +76,7 @@ then
     echo "$curdatetime : Total of $filecount1 file(s) were found, next trying to copy them." >> "$scriptdir/log_rescue_copy.txt"
     echo "$filecount1 file(s) were found, proceeding with copying..."
 else
+# Note, there will be no (useless) logging after the initial script execution if there are no files.
     echo "No files were found in source directory, exiting"
     exit 0
 fi
@@ -141,7 +145,7 @@ fi
 
 # If the script has gotten this far, all the set parameters should be valid, there are files to copy and the target folder has sufficient permissions for copying.
 
-# This can be commented out.
+# This is commented out to suppress logging.
 # curdatetime=$(date +"%d/%m/%Y %R")
 # echo "$curdatetime : Target folder $targetdir seems to be mounted OK, next trying to copy the files one by one." >> "$scriptdir/log_rescue_copy.txt"
 
@@ -153,7 +157,7 @@ for ifile in "$sourcedir"/*
 do
     sourcesize_one=$(stat -c%s "$ifile")
 
-# Take a 2 sec break and then reads the file size again. If there is a mismatch, skip to the next file.
+# Take a 2 sec break and then read the file size again. If there is a mismatch, skip to the next file.
     sleep 2
     sourcesize_two=$(stat -c%s "$ifile")
     if [ "$sourcesize_one" != "$sourcesize_two" ]
@@ -183,7 +187,7 @@ do
 sourcesize=$(stat -c%s "$ifile")
 targetsize=$(stat -c%s "$targetdir/$ifilebase")
 
-# This can be commented out.
+# This is commented out by default.
 # echo "Source size is $sourcesize_one and target size is $targetsize ."
 
 # If the target file size matches the source, the process is logged as a success, send an email for notification.
@@ -201,7 +205,6 @@ else
     echo "The file $ifilebase could not be copied to $targetdir, check the log. Skipping to the (possible) next file..."
     continue
 fi
-
 done
 
 curdatetime=$(date +"%d/%m/%Y %R")
